@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   const uploadId = searchParams.get("uploadId");
   const postId = searchParams.get("postId");
 
-  let job = null;
+  let job: any = null;
 
   if (uploadId) {
     job = uploadJobs.get(uploadId);
