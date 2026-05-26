@@ -4,16 +4,18 @@
  * Polls the progress of an active upload job.
  *
  * Query params:
- *   uploadId — upload job ID (returned from POST /api/posting/upload)
- *   postId   — alternatively, find by post ID
+ * uploadId — upload job ID (returned from POST /api/posting/upload)
+ * postId   — alternatively, find by post ID
  *
  * Response:
- *   IpcResult<UploadProgressData>
+ * IpcResult<UploadProgressData>
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import type { IpcResult, IpcError } from "@/shared/types/ipc";
-import { uploadJobs } from "../upload/route";
+
+// ИСПРАВЛЕНО: Теперь берем uploadJobs из нашего отдельного файла
+import { uploadJobs } from "@/lib/jobStore";
 
 export const dynamic = "force-dynamic";
 
