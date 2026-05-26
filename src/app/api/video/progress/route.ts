@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { renderJobs } from '../render/route';
+// ИМПОРТИРУЕМ ИЗ НОВОГО ФАЙЛА
+import { renderJobs } from '@/lib/jobStore';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,9 +16,6 @@ export async function GET(req: NextRequest) {
 
     const job = renderJobs.get(jobId);
 
-    console.log(`[Поллинг] Запрос статуса: ${jobId} -> В памяти:`, job);
-
-    // Если задача ещё не создалась в памяти, притворимся, что она только началась
     if (!job) {
       return NextResponse.json({
         type: 'progress',
@@ -30,25 +28,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Проверяем, готова ли задача
     const isDone = job.status === 'COMPLETED' || job.progress === 100;
 
     if (isDone) {
-      // Формат, который завершит бесконечный цикл на фронтенде
       return NextResponse.json({
         type: 'complete',
         outputFilePath: job.outputPath || job.videoUrl || '',
-        cropMode: 'center' // или любое дефолтное значение
+        cropMode: 'center'
       }, {
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
       });
     }
 
-    // Если ещё рендерится
     return NextResponse.json({
       type: 'progress',
       percent: job.progress || 0,
-      speed: 1.2,  // моковые данные для интерфейса, если реальных нет
+      speed: 1.2,
       eta: 30,
       bitrate: 5000
     }, {
