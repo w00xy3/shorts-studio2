@@ -1,0 +1,114 @@
+// ClipFlow — Auto-clipper & Auto-poster database schema
+// All tokens/credentials are stored encrypted; only metadata references live here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Source video imported by the user (16:9 horizontal)
+model SourceVideo {
+  id            String   @id @default(cuid())
+  fileName      String   // original file name
+  filePath      String   // absolute path on disk
+  fileSize      Int      // bytes
+  duration      Float    // seconds
+  width         Int
+  height        Int
+  fps           Float    @default(30)
+  codec         String   @default("h264")
+  thumbnailPath String?  // path to extracted thumbnail
+  importedAt    DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clips Clip[]
+
+  @@map("source_videos")
+}
+
+/// A single clip cut from a source video (9:16 vertical)
+model Clip {
+  id             String   @id @default(cuid())
+  sourceVideoId  String
+  sourceVideo    SourceVideo @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+
+  title          String   // user-visible name
+  startTime      Float    // start offset in seconds
+  endTime        Float    // end offset in seconds
+  outputWidth    Int      @default(1080)
+  outputHeight   Int      @default(1920)
+  cropMode       String   @default("blur") // "center" | "blur"
+  blurStrength   Int      @default(20)     // 0-40, only for blur mode
+  status         String   @default("pending") // pending | processing | done | error
+  progress       Int      @default(0)   // 0-100
+  outputFilePath String? // path to the rendered clip file
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  posts Post[]
+
+  @@map("clips")
+}
+
+/// Connected social media account
+model Account {
+  id                 String    @id @default(cuid())
+  platform           String    // "tiktok" | "youtube" | "instagram"
+  platformUserId     String    // user ID on the platform
+  displayName        String
+  avatarUrl          String?
+  // Token REFERENCE — actual tokens live in encrypted keytar/storage
+  // We store a key reference that maps to the secure storage entry
+  tokenKeyRef        String    // unique key used to look up tokens in secure storage
+  tokenExpiresAt     DateTime?
+  refreshTokenKeyRef String?   // separate ref for refresh token
+  isActive           Boolean   @default(true)
+  connectedAt        DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  posts Post[]
+
+  @@unique([platform, platformUserId])
+  @@map("accounts")
+}
+
+/// A scheduled or published post
+model Post {
+  id             String    @id @default(cuid())
+  clipId         String
+  clip           Clip      @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  description    String    @default("")
+  tags           String    @default("") // comma-separated hashtags
+  coverImageUrl  String?   // optional custom cover
+  status         String    @default("draft") // draft | scheduled | uploading | published | failed
+  scheduledAt    DateTime? // null = immediate
+  publishedAt    DateTime?
+  platformPostId String?   // ID returned by platform after successful publish
+  errorMessage   String?
+  uploadProgress Int       @default(0) // 0-100 for chunked uploads
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("posts")
+}
+
+/// Processing job log for debugging & audit
+model ProcessingLog {
+  id        String   @id @default(cuid())
+  jobType   String   // "clip" | "upload" | "refresh_token"
+  targetId  String   // ID of the related entity (Clip.id or Post.id)
+  status    String   // "started" | "completed" | "failed"
+  message   String?
+  metadata  String?  // JSON string with extra info
+  createdAt DateTime @default(now())
+
+  @@map("processing_logs")
+}
